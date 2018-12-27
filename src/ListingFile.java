@@ -38,6 +38,11 @@ public class ListingFile {
 		String col3;
 		String col2Old = "";
 		
+		int lineComment = 0; 
+		int lineKey = 0;
+		int lineStartFakeInclude = 0;
+		boolean inIncludeInv = false; 
+		
 		for (int i = 0; i < listingFile.size(); i++) {
 			line = listingFile.get(i);
 			
@@ -62,6 +67,18 @@ public class ListingFile {
 			src = Integer.parseInt(col1);
 			srcOld = (srcOld == -1 ? src : srcOld);
 
+			int startComment = 0;
+			
+			while (line.indexOf("/*", startComment) >= 0) {
+				startComment = line.indexOf("/*", startComment) + 1;
+				lineComment++;
+			}
+			startComment = 0;
+			while (line.indexOf("*/", startComment) >= 0) {
+				startComment = line.indexOf("*/", startComment) + 1;
+				lineComment--;
+			}
+			
 			if (srcOld != src) {
 				if (srcOld < src) {
 					int close = 0;
@@ -117,6 +134,45 @@ public class ListingFile {
 					}
 				} else {
 					stack.remove(stack.size() - 1);
+				}
+			} else { // tratamento para casos de includes não detectadas.
+				
+				int start = 0;
+				
+				if(lineComment == 0){ // não está dentro de um comentário
+					start = 0;					
+					while (line.indexOf("{", start) >= 0) {
+						start = line.indexOf("{", start) + 1;
+						lineKey++;
+					}
+					
+					start = 0;
+					while (line.indexOf("}", start) >= 0) {
+						start = line.indexOf("}", start) + 1;
+						lineKey--;
+					}
+					
+					if(lineKey > 0){
+						if (line.indexOf(".i") > 0){
+							inIncludeInv = true;
+							lineStartFakeInclude = listings.size();
+						}	
+					}
+					
+					if((lineKey == 0)&&(inIncludeInv)){
+						String nextLine = listingFile.get(i + 1);
+						String nextCol1 = nextLine.substring(0, 2).trim(); // Source number
+						
+						inIncludeInv = false;
+						
+						if(col1.equalsIgnoreCase(nextCol1)) {
+							
+							while(lineStartFakeInclude != listings.size()) {
+								listings.remove(listings.size() - 1);
+								sources.remove(sources.size() - 1);
+							}
+						}
+					}
 				}
 			}
 
