@@ -45,13 +45,17 @@ public class ProfilerCoverage {
 				if (blocks == PROFILER_BLOCK_INFO) {
 					System.out.println("** Reading profiler file \"" + file + "\" **");
 				} else if (blocks == PROFILER_BLOCK_SOURCES) {
-					this.parseSource(line);
+					if (!parseSource(line)){
+						blocks++;
+					}
 				} else if (blocks == PROFILER_BLOCK_COVERAGE) {
 					this.parseCoverage(line);
 				} else if (blocks > PROFILER_BLOCK_SOURCES_LINES) {
+					
 					if (!readingLines) {
-						readingLines = true;
 						source = this.getLinesSource(line);
+						if(source!=null)
+							readingLines = true;							
 					} else if (source != null) {
 						this.parseLines(line, source);
 					}
@@ -76,7 +80,7 @@ public class ProfilerCoverage {
 	 * 
 	 * {@code example: "698 "remove-all-links adm/objects/broker.p" "" 0"}
 	 */
-	private void parseSource(String sourceLine) {
+	private boolean parseSource(String sourceLine) {
 		Matcher matcher = Pattern.compile("\"([^\"]*)\"|(\\S+)").matcher(sourceLine);
 
 		// Get the source ID information.
@@ -85,19 +89,25 @@ public class ProfilerCoverage {
 
 		// Get the source path information.
 		matcher.find();
-		String list[] = matcher.group(1).split(" ");
-		
-		// Add the found source information to the list.
-		dbg.put(codeno, list[list.length - 1].replace("\\", "/"));
+		try{
+			String list[] = matcher.group(1).split(" ");
+			// Add the found source information to the list.
+			dbg.put(codeno, list[list.length - 1].replace("\\", "/"));
+		}catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}		
+		return true;
 	}
 	
 	/**
 	 * Parses the coverage line extracted from the profiler.
 	 * @param coverageLine Line extracted from the profiler containing the coverage information.
-	 * 
+	 * @return if successful in covering the line
+	 *
 	 * {@code example: "32 1974 1 0.000496 0.000496"}
 	 */
-	private void parseCoverage(String coverageLine) {
+	private boolean parseCoverage(String coverageLine) {
 		String filename;
 		String[] splitted = coverageLine.split(" ");
 		
@@ -106,7 +116,7 @@ public class ProfilerCoverage {
 		int lineno = 0;
 		int codeno = 0;
 		
-		if (splitted.length == 5) {
+		if (splitted.length == 5 && !splitted[0].trim().equals("") && !splitted[1].trim().equals("")) {
 			codeno = Integer.valueOf(splitted[0].trim());
 			lineno = Integer.valueOf(splitted[1].trim());
 
@@ -128,7 +138,11 @@ public class ProfilerCoverage {
 					}
 				}
 			}
+			
+			return true;
 		}
+		
+		return false;
 	}
 	
 	/**
@@ -146,7 +160,7 @@ public class ProfilerCoverage {
 		int codeno;
 		String filename;
 
-		if (matcher.find()) {
+		if (matcher.groupCount() == 3 && matcher.find()) {
 			// Get the source ID information.
 			codeno = Integer.valueOf(matcher.group(2));
 			filename = dbg.get(codeno);
